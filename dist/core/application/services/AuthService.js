@@ -124,6 +124,93 @@ let AuthService = class AuthService {
         await this.userRepository.save(user);
         return this.generateAuthResponse(user);
     }
+    async forgotPassword(email) {
+        const user = await this.userRepository.findOne({ where: { email } });
+        if (!user) {
+            return { status: 'success', message: 'If account exists, OTP sent' };
+        }
+        const otp = crypto_1.CryptoUtils.generateOtp(6);
+        const otpHash = crypto_1.CryptoUtils.hashOtp(otp);
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+        const otpToken = this.otpRepository.create({
+            user_id: user.id,
+            token: otpHash,
+            type: OtpToken_entity_1.OtpType.PASSWORD_RESET,
+            expires_at: expiresAt,
+        });
+        await this.otpRepository.save(otpToken);
+        await this.emailService.sendPasswordResetEmail(email, otp);
+        return {
+            status: 'success',
+            message: 'Password reset OTP sent to email',
+        };
+    }
+    async resetPassword(email, otp, newPassword) {
+        const user = await this.userRepository.findOne({ where: { email } });
+        if (!user) {
+            throw new common_1.BadRequestException('Invalid request');
+        }
+        const otpRecord = await this.otpRepository.findOne({
+            where: {
+                user_id: user.id,
+                type: OtpToken_entity_1.OtpType.PASSWORD_RESET,
+                used_at: (0, typeorm_2.IsNull)(),
+            },
+            order: { created_at: 'DESC' },
+        });
+        if (!otpRecord || !crypto_1.CryptoUtils.compareOtp(otp, otpRecord.token)) {
+            throw new common_1.BadRequestException('Invalid or expired OTP');
+        }
+        if (new Date() > otpRecord.expires_at) {
+            throw new common_1.BadRequestException('OTP expired');
+        }
+        otpRecord.used_at = new Date();
+        await this.otpRepository.save(otpRecord);
+        user.password_hash = await crypto_1.CryptoUtils.hashPassword(newPassword);
+        await this.userRepository.save(user);
+        return {
+            status: 'success',
+            message: 'Password reset successfully',
+        };
+    }
+    async refreshToken(refreshToken) {
+        try {
+            const payload = this.jwtService.verify(refreshToken);
+            const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+            if (!user) {
+                throw new common_1.UnauthorizedException('User not found');
+            }
+            const newPayload = { sub: user.id, email: user.email, role: user.role };
+            const newAccessToken = this.jwtService.sign(newPayload);
+            return {
+                status: 'success',
+                data: {
+                    access_token: newAccessToken,
+                    expires_in: 3600,
+                },
+            };
+        }
+        catch (e) {
+            throw new common_1.UnauthorizedException('Invalid refresh token');
+        }
+    }
+    async logout(userId) {
+        return {
+            status: 'success',
+            message: 'Logged out successfully',
+        };
+    }
+    async deleteAccount(userId) {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (!user)
+            return;
+        await this.userRepository.softDelete(userId);
+        return {
+            status: 'success',
+            message: 'Account deletion initiated. Your data will be permanently deleted in 30 days.'
+        };
+    }
     async generateAuthResponse(user) {
         const payload = { sub: user.id, email: user.email, role: user.role };
         const accessToken = this.jwtService.sign(payload);

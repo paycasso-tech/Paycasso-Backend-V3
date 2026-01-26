@@ -147,6 +147,120 @@ export class AuthService {
     return this.generateAuthResponse(user);
   }
 
+  async forgotPassword(email: string) {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      // Don't reveal user existence
+      return { status: 'success', message: 'If account exists, OTP sent' };
+    }
+
+    const otp = CryptoUtils.generateOtp(6);
+    const otpHash = CryptoUtils.hashOtp(otp);
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    const otpToken = this.otpRepository.create({
+      user_id: user.id,
+      token: otpHash,
+      type: OtpType.PASSWORD_RESET,
+      expires_at: expiresAt,
+    });
+
+    await this.otpRepository.save(otpToken);
+    await this.emailService.sendPasswordResetEmail(email, otp);
+
+    return {
+      status: 'success',
+      message: 'Password reset OTP sent to email',
+    };
+  }
+
+  async resetPassword(email: string, otp: string, newPassword: string) {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+        throw new BadRequestException('Invalid request');
+    }
+
+    const otpRecord = await this.otpRepository.findOne({
+      where: {
+        user_id: user.id,
+        type: OtpType.PASSWORD_RESET,
+        used_at: IsNull(),
+      },
+      order: { created_at: 'DESC' },
+    });
+
+    if (!otpRecord || !CryptoUtils.compareOtp(otp, otpRecord.token)) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    if (new Date() > otpRecord.expires_at) {
+      throw new BadRequestException('OTP expired');
+    }
+
+    // Mark OTP used
+    otpRecord.used_at = new Date();
+    await this.otpRepository.save(otpRecord);
+
+    // Update password
+    user.password_hash = await CryptoUtils.hashPassword(newPassword);
+    await this.userRepository.save(user);
+
+    return {
+      status: 'success',
+      message: 'Password reset successfully',
+    };
+  }
+
+  async refreshToken(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken);
+      const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+      
+      if (!user) {
+         throw new UnauthorizedException('User not found');
+      }
+
+      // In a real app, verify revocation status here if storing refresh tokens in DB
+
+      const newPayload = { sub: user.id, email: user.email, role: user.role };
+      const newAccessToken = this.jwtService.sign(newPayload);
+
+      return {
+        status: 'success',
+        data: {
+          access_token: newAccessToken,
+          expires_in: 3600,
+        },
+      };
+    } catch (e) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async logout(userId: string) {
+    // In stateless JWT, we can't really "logout" without a blacklist.
+    // Spec asks for success response.
+    // If implementing refresh token rotation, we would revoke it here.
+    return {
+      status: 'success',
+      message: 'Logged out successfully',
+    };
+  }
+
+  async deleteAccount(userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) return;
+
+    // Hard delete or soft delete? Spec schema has deleted_at, implying soft delete.
+    await this.userRepository.softDelete(userId); // Updates deleted_at
+
+    return {
+        status: 'success',
+        message: 'Account deletion initiated. Your data will be permanently deleted in 30 days.'
+    };
+  }
+
   private async generateAuthResponse(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);

@@ -49,5 +49,28 @@ export declare class AuthService {
             };
         };
     }>;
+    forgotPassword(email: string): Promise<{
+        status: string;
+        message: string;
+    }>;
+    resetPassword(email: string, otp: string, newPassword: string): Promise<{
+        status: string;
+        message: string;
+    }>;
+    refreshToken(refreshToken: string): Promise<{
+        status: string;
+        data: {
+            access_token: string;
+            expires_in: number;
+        };
+    }>;
+    logout(userId: string): Promise<{
+        status: string;
+        message: string;
+    }>;
+    deleteAccount(userId: string): Promise<{
+        status: string;
+        message: string;
+    } | undefined>;
     private generateAuthResponse;
 }

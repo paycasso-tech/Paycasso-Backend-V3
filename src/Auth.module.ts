@@ -8,6 +8,7 @@ import { AuthService } from './core/application/services/AuthService';
 import { EmailService } from './core/application/services/EmailService';
 import { User } from './core/domain/entities/User.entity';
 import { OtpToken } from './core/domain/entities/OtpToken.entity';
+import { JwtStrategy } from './core/application/strategies/jwt.strategy';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { OtpToken } from './core/domain/entities/OtpToken.entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, EmailService],
+  providers: [AuthService, EmailService, JwtStrategy],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

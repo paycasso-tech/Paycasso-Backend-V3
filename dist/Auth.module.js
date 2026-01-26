@@ -17,6 +17,7 @@ const AuthService_1 = require("./core/application/services/AuthService");
 const EmailService_1 = require("./core/application/services/EmailService");
 const User_entity_1 = require("./core/domain/entities/User.entity");
 const OtpToken_entity_1 = require("./core/domain/entities/OtpToken.entity");
+const jwt_strategy_1 = require("./core/application/strategies/jwt.strategy");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -37,7 +38,7 @@ exports.AuthModule = AuthModule = __decorate([
             }),
         ],
         controllers: [AuthController_1.AuthController],
-        providers: [AuthService_1.AuthService, EmailService_1.EmailService],
+        providers: [AuthService_1.AuthService, EmailService_1.EmailService, jwt_strategy_1.JwtStrategy],
         exports: [AuthService_1.AuthService, jwt_1.JwtModule],
     })
 ], AuthModule);
