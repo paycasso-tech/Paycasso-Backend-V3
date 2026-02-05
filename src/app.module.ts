@@ -6,6 +6,8 @@ import jwtConfig from './config/jwt.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './Auth.module';
+import { WalletModule } from './Wallet.module';
+import { EscrowModule } from './Escrow.module';
 
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -26,6 +28,8 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
         limit: 10,
     }]),
     AuthModule,
+    WalletModule,
+    EscrowModule,
   ],
   controllers: [AppController],
   providers: [

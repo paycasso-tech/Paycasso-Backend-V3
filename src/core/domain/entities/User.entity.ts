@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, OneToMany } from 'typeorm';
+import { Wallet } from './Wallet.entity';
 
 export enum UserRole {
   USER = 'user',
@@ -52,4 +53,17 @@ export class User {
 
   @Column({ nullable: true })
   last_login_at: Date;
+
+  // Phase 2 Fields
+  @Column({ nullable: true, length: 42 })
+  wallet_address: string; // Primary wallet address shortcut
+
+  @Column({ nullable: true })
+  wallet_created_at: Date;
+
+  @Column({ nullable: true, default: 'coinbase_embedded' })
+  wallet_provider: string;
+
+  @OneToMany(() => Wallet, (wallet) => wallet.user)
+  wallets: Wallet[];
 }

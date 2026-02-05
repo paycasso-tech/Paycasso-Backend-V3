@@ -18,6 +18,8 @@ const jwt_config_1 = __importDefault(require("./config/jwt.config"));
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const Auth_module_1 = require("./Auth.module");
+const Wallet_module_1 = require("./Wallet.module");
+const Escrow_module_1 = require("./Escrow.module");
 const core_1 = require("@nestjs/core");
 const throttler_1 = require("@nestjs/throttler");
 let AppModule = class AppModule {
@@ -39,6 +41,8 @@ exports.AppModule = AppModule = __decorate([
                     limit: 10,
                 }]),
             Auth_module_1.AuthModule,
+            Wallet_module_1.WalletModule,
+            Escrow_module_1.EscrowModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [

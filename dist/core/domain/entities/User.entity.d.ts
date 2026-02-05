@@ -1,3 +1,4 @@
+import { Wallet } from './Wallet.entity';
 export declare enum UserRole {
     USER = "user",
     ADMIN = "admin"
@@ -19,4 +20,8 @@ export declare class User {
     updated_at: Date;
     deleted_at: Date;
     last_login_at: Date;
+    wallet_address: string;
+    wallet_created_at: Date;
+    wallet_provider: string;
+    wallets: Wallet[];
 }
