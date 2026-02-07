@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Escrow } from './Escrow.entity';
 import { User } from './User.entity';
 
@@ -56,14 +65,14 @@ export class Transaction {
 
   @Column({
     type: 'enum',
-    enum: TransactionType
+    enum: TransactionType,
   })
   tx_type: TransactionType;
 
   @Column({
     type: 'enum',
     enum: TransactionStatus,
-    default: TransactionStatus.PENDING
+    default: TransactionStatus.PENDING,
   })
   @Index()
   status: TransactionStatus;

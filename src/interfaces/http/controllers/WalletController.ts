@@ -1,5 +1,19 @@
-import { Controller, Post, Get, Body, UseGuards, Req, HttpStatus, HttpCode } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  UseGuards,
+  Req,
+  HttpStatus,
+  HttpCode,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { WalletService } from '../../../core/application/services/WalletService';
 
@@ -19,7 +33,7 @@ export class WalletController {
       req.user.userId,
       body.wallet_address,
       body.network,
-      body.metadata
+      body.metadata,
     );
   }
 
@@ -38,7 +52,7 @@ export class WalletController {
       req.user.userId,
       body.wallet_address,
       body.signature,
-      body.message
+      body.message,
     );
   }
 }

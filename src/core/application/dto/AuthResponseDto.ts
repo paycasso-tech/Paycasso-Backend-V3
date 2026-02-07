@@ -8,7 +8,7 @@ class UserResponse {
   @ApiProperty({ example: 'user@example.com' })
   email: string;
 
-  @ApiProperty({ enum: UserRole, example: UserRole.USER })
+  @ApiProperty({ enum: UserRole, example: UserRole.CLIENT })
   role: UserRole;
 
   @ApiProperty({ example: true })

@@ -18,6 +18,7 @@ const jwt_config_1 = __importDefault(require("./config/jwt.config"));
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const Auth_module_1 = require("./Auth.module");
+const UserProfile_module_1 = require("./UserProfile.module");
 const Wallet_module_1 = require("./Wallet.module");
 const Escrow_module_1 = require("./Escrow.module");
 const core_1 = require("@nestjs/core");
@@ -36,11 +37,14 @@ exports.AppModule = AppModule = __decorate([
                 inject: [config_1.ConfigService],
                 useFactory: async (configService) => configService.get('database'),
             }),
-            throttler_1.ThrottlerModule.forRoot([{
+            throttler_1.ThrottlerModule.forRoot([
+                {
                     ttl: 60000,
                     limit: 10,
-                }]),
+                },
+            ]),
             Auth_module_1.AuthModule,
+            UserProfile_module_1.UserProfileModule,
             Wallet_module_1.WalletModule,
             Escrow_module_1.EscrowModule,
         ],

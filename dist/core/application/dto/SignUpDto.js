@@ -12,10 +12,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SignUpDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const User_entity_1 = require("../../domain/entities/User.entity");
 class SignUpDto {
     email;
     password;
     confirm_password;
+    role;
+    full_name;
+    timezone;
 }
 exports.SignUpDto = SignUpDto;
 __decorate([
@@ -37,4 +41,20 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], SignUpDto.prototype, "confirm_password", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'client', enum: ['client', 'freelancer'] }),
+    (0, class_validator_1.IsEnum)(User_entity_1.UserRole, { message: 'Role must be either client or freelancer' }),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "role", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'John Doe' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "full_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'America/New_York', required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SignUpDto.prototype, "timezone", void 0);
 //# sourceMappingURL=SignUpDto.js.map

@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -22,13 +27,16 @@ export class AuthService {
   ) {}
 
   async signUp(signUpDto: SignUpDto) {
-    const { email, password, confirm_password } = signUpDto;
+    const { email, password, confirm_password, role, full_name, timezone } =
+      signUpDto;
 
     if (password !== confirm_password) {
       throw new BadRequestException('Passwords do not match');
     }
 
-    const existingUser = await this.userRepository.findOne({ where: { email } });
+    const existingUser = await this.userRepository.findOne({
+      where: { email },
+    });
     if (existingUser) {
       throw new ConflictException('Email already exists');
     }
@@ -38,7 +46,9 @@ export class AuthService {
     const user = this.userRepository.create({
       email,
       password_hash: passwordHash,
-      role: UserRole.USER,
+      role,
+      full_name,
+      timezone: timezone || 'UTC',
       status: UserStatus.PENDING_VERIFICATION,
     });
 
@@ -47,7 +57,7 @@ export class AuthService {
     // Generate and send OTP
     const otp = CryptoUtils.generateOtp(6);
     const otpHash = CryptoUtils.hashOtp(otp);
-    
+
     // Expires in 10 minutes
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
@@ -63,13 +73,64 @@ export class AuthService {
     await this.emailService.sendVerificationEmail(email, otp);
 
     return {
-      status: 'success',
-      message: 'Verification email sent',
-      data: {
-        user_id: savedUser.id,
-        email: savedUser.email,
-        verification_required: true,
+      success: true,
+      message: 'Verification OTP sent to email',
+      user_id: savedUser.id,
+      email: savedUser.email,
+    };
+  }
+
+  async resendOtp(email: string) {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      // Don't reveal user existence for security
+      return {
+        success: true,
+        message: 'If account exists, OTP has been sent',
+      };
+    }
+
+    if (user.email_verified) {
+      throw new BadRequestException('Email already verified');
+    }
+
+    // Rate limiting: Check last OTP sent time (max 3 per 10 minutes)
+    const tenMinutesAgo = new Date();
+    tenMinutesAgo.setMinutes(tenMinutesAgo.getMinutes() - 10);
+
+    const recentOtps = await this.otpRepository.count({
+      where: {
+        user_id: user.id,
+        type: OtpType.EMAIL_VERIFICATION,
+        created_at: tenMinutesAgo,
       },
+    });
+
+    if (recentOtps >= 3) {
+      throw new BadRequestException(
+        'Too many OTP requests. Please try again in 10 minutes.',
+      );
+    }
+
+    // Generate and send new OTP
+    const otp = CryptoUtils.generateOtp(6);
+    const otpHash = CryptoUtils.hashOtp(otp);
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    const otpToken = this.otpRepository.create({
+      user_id: user.id,
+      token: otpHash,
+      type: OtpType.EMAIL_VERIFICATION,
+      expires_at: expiresAt,
+    });
+
+    await this.otpRepository.save(otpToken);
+    await this.emailService.sendVerificationEmail(email, otp);
+
+    return {
+      success: true,
+      message: 'Verification OTP resent to email',
     };
   }
 
@@ -96,7 +157,7 @@ export class AuthService {
     });
 
     if (!otpRecord) {
-        throw new BadRequestException('Invalid or expired OTP');
+      throw new BadRequestException('Invalid or expired OTP');
     }
 
     if (!CryptoUtils.compareOtp(otp, otpRecord.token)) {
@@ -121,8 +182,9 @@ export class AuthService {
 
   async signIn(signInDto: SignInDto) {
     const { email, password } = signInDto;
-    
-    const user = await this.userRepository.createQueryBuilder('user')
+
+    const user = await this.userRepository
+      .createQueryBuilder('user')
       .addSelect('user.password_hash')
       .where('user.email = :email', { email })
       .getOne();
@@ -131,15 +193,21 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await CryptoUtils.comparePassword(password, user.password_hash);
+    const isPasswordValid = await CryptoUtils.comparePassword(
+      password,
+      user.password_hash,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (user.status !== UserStatus.ACTIVE && user.status !== UserStatus.PENDING_VERIFICATION) {
-       throw new UnauthorizedException(`Account is ${user.status}`);
+    if (
+      user.status !== UserStatus.ACTIVE &&
+      user.status !== UserStatus.PENDING_VERIFICATION
+    ) {
+      throw new UnauthorizedException(`Account is ${user.status}`);
     }
-    
+
     // Update last login
     user.last_login_at = new Date();
     await this.userRepository.save(user);
@@ -178,7 +246,7 @@ export class AuthService {
   async resetPassword(email: string, otp: string, newPassword: string) {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
-        throw new BadRequestException('Invalid request');
+      throw new BadRequestException('Invalid request');
     }
 
     const otpRecord = await this.otpRepository.findOne({
@@ -207,18 +275,54 @@ export class AuthService {
     await this.userRepository.save(user);
 
     return {
-      status: 'success',
+      success: true,
       message: 'Password reset successfully',
+    };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password_hash')
+      .where('user.id = :userId', { userId })
+      .getOne();
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Verify current password
+    const isPasswordValid = await CryptoUtils.comparePassword(
+      currentPassword,
+      user.password_hash,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // Update to new password
+    user.password_hash = await CryptoUtils.hashPassword(newPassword);
+    await this.userRepository.save(user);
+
+    return {
+      success: true,
+      message: 'Password changed successfully',
     };
   }
 
   async refreshToken(refreshToken: string) {
     try {
       const payload = this.jwtService.verify(refreshToken);
-      const user = await this.userRepository.findOne({ where: { id: payload.sub } });
-      
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub },
+      });
+
       if (!user) {
-         throw new UnauthorizedException('User not found');
+        throw new UnauthorizedException('User not found');
       }
 
       // In a real app, verify revocation status here if storing refresh tokens in DB
@@ -256,15 +360,16 @@ export class AuthService {
     await this.userRepository.softDelete(userId); // Updates deleted_at
 
     return {
-        status: 'success',
-        message: 'Account deletion initiated. Your data will be permanently deleted in 30 days.'
+      status: 'success',
+      message:
+        'Account deletion initiated. Your data will be permanently deleted in 30 days.',
     };
   }
 
   private async generateAuthResponse(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' }); 
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     return {
       status: 'success',

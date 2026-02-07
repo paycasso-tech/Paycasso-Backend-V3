@@ -27,7 +27,7 @@ __decorate([
     __metadata("design:type", String)
 ], UserResponse.prototype, "email", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: User_entity_1.UserRole, example: User_entity_1.UserRole.USER }),
+    (0, swagger_1.ApiProperty)({ enum: User_entity_1.UserRole, example: User_entity_1.UserRole.CLIENT }),
     __metadata("design:type", String)
 ], UserResponse.prototype, "role", void 0);
 __decorate([

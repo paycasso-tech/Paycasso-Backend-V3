@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from './User.entity';
 
 export enum WalletStatus {
@@ -8,7 +17,10 @@ export enum WalletStatus {
 }
 
 @Entity('wallets')
-@Index(['user_id', 'is_primary', 'network'], { unique: true, where: "is_primary = true" })
+@Index(['user_id', 'is_primary', 'network'], {
+  unique: true,
+  where: 'is_primary = true',
+})
 export class Wallet {
   @PrimaryGeneratedColumn('uuid')
   id: string;

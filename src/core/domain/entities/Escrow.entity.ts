@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  OneToMany,
+} from 'typeorm';
 import { User } from './User.entity';
 import { Transaction } from './Transaction.entity';
 import { Milestone } from './Milestone.entity';
@@ -65,7 +75,7 @@ export class Escrow {
   @Column({
     type: 'enum',
     enum: EscrowStatus,
-    default: EscrowStatus.CREATED
+    default: EscrowStatus.CREATED,
   })
   status: EscrowStatus;
 

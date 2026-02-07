@@ -17,7 +17,7 @@ export class BlockchainService {
       this.provider = new ethers.JsonRpcProvider(rpcUrl);
       this.logger.log(`🔗 Blockchain Provider connected: ${rpcUrl}`);
     } else {
-        this.logger.warn('Blockchain RPC URL not configured.');
+      this.logger.warn('Blockchain RPC URL not configured.');
     }
   }
 
@@ -29,7 +29,7 @@ export class BlockchainService {
       if (!tx) return { exists: false };
 
       const receipt = await this.provider.getTransactionReceipt(txHash);
-      
+
       return {
         exists: true,
         confirmed: receipt && receipt.status === 1,
@@ -37,7 +37,7 @@ export class BlockchainService {
         from: tx.from,
         to: tx.to,
         value: ethers.formatUnits(tx.value, 18), // assuming ETH/Native
-        blockNumber: receipt?.blockNumber
+        blockNumber: receipt?.blockNumber,
       };
     } catch (error) {
       this.logger.error(`Failed to verify tx ${txHash}:`, error);

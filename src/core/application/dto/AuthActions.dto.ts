@@ -1,5 +1,18 @@
-import { IsEmail, IsString, Length, Matches, IsNotEmpty } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  Length,
+  Matches,
+  IsNotEmpty,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+
+export class ResendOtpDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  email: string;
+}
 
 export class ForgotPasswordDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -21,7 +34,8 @@ export class ResetPasswordDto {
   @IsString()
   @Length(8, 100)
   @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
-    message: 'Password must contain uppercase, lowercase, number, and special character',
+    message:
+      'Password must contain uppercase, lowercase, number, and special character',
   })
   new_password: string;
 
@@ -37,6 +51,22 @@ export class RefreshTokenDto {
   refresh_token: string;
 }
 
+export class ChangePasswordDto {
+  @ApiProperty({ example: 'SecurePass123!' })
+  @IsString()
+  @IsNotEmpty()
+  current_password: string;
+
+  @ApiProperty({ example: 'NewSecurePass@456' })
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+    message:
+      'Password must contain uppercase, lowercase, number, and special character',
+  })
+  new_password: string;
+}
+
 export class DeleteAccountDto {
   @ApiProperty({ example: 'SecurePass123!' })
   @IsString()
@@ -44,6 +74,8 @@ export class DeleteAccountDto {
 
   @ApiProperty({ example: 'DELETE MY ACCOUNT' })
   @IsString()
-  @Matches(/^DELETE MY ACCOUNT$/, { message: 'Confirmation must match exactly' })
+  @Matches(/^DELETE MY ACCOUNT$/, {
+    message: 'Confirmation must match exactly',
+  })
   confirmation: string;
 }

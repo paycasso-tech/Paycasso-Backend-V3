@@ -2,18 +2,19 @@ import { AuthService } from '../../../core/application/services/AuthService';
 import { SignUpDto } from '../../../core/application/dto/SignUpDto';
 import { SignInDto } from '../../../core/application/dto/SignInDto';
 import { VerifyEmailDto } from '../../../core/application/dto/VerifyEmailDto';
-import { ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto, DeleteAccountDto } from '../../../core/application/dto/AuthActions.dto';
+import { ResendOtpDto, ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto, ChangePasswordDto, DeleteAccountDto } from '../../../core/application/dto/AuthActions.dto';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
     signUp(signUpDto: SignUpDto): Promise<{
-        status: string;
+        success: boolean;
         message: string;
-        data: {
-            user_id: string;
-            email: string;
-            verification_required: boolean;
-        };
+        user_id: string;
+        email: string;
+    }>;
+    resendOtp(dto: ResendOtpDto): Promise<{
+        success: boolean;
+        message: string;
     }>;
     verifyEmail(verifyEmailDto: VerifyEmailDto): Promise<{
         status: string;
@@ -48,7 +49,11 @@ export declare class AuthController {
         message: string;
     }>;
     resetPassword(dto: ResetPasswordDto): Promise<{
-        status: string;
+        success: boolean;
+        message: string;
+    }>;
+    changePassword(req: any, dto: ChangePasswordDto): Promise<{
+        success: boolean;
         message: string;
     }>;
     refreshToken(dto: RefreshTokenDto): Promise<{

@@ -13,13 +13,14 @@ export declare class AuthService {
     private emailService;
     constructor(userRepository: Repository<User>, otpRepository: Repository<OtpToken>, jwtService: JwtService, emailService: EmailService);
     signUp(signUpDto: SignUpDto): Promise<{
-        status: string;
+        success: boolean;
         message: string;
-        data: {
-            user_id: string;
-            email: string;
-            verification_required: boolean;
-        };
+        user_id: string;
+        email: string;
+    }>;
+    resendOtp(email: string): Promise<{
+        success: boolean;
+        message: string;
     }>;
     verifyEmail(verifyEmailDto: VerifyEmailDto): Promise<{
         status: string;
@@ -54,7 +55,11 @@ export declare class AuthService {
         message: string;
     }>;
     resetPassword(email: string, otp: string, newPassword: string): Promise<{
-        status: string;
+        success: boolean;
+        message: string;
+    }>;
+    changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{
+        success: boolean;
         message: string;
     }>;
     refreshToken(refreshToken: string): Promise<{

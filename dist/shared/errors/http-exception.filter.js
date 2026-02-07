@@ -23,7 +23,9 @@ let HttpExceptionFilter = class HttpExceptionFilter {
             status: 'error',
             error: {
                 code: `ERR_${status}`,
-                message: typeof message === 'string' ? message : message.message || message,
+                message: typeof message === 'string'
+                    ? message
+                    : message.message || message,
                 details: typeof message === 'object' ? message : null,
                 timestamp: new Date().toISOString(),
                 path: request.url,

@@ -33,11 +33,13 @@ let AuthService = class AuthService {
         this.emailService = emailService;
     }
     async signUp(signUpDto) {
-        const { email, password, confirm_password } = signUpDto;
+        const { email, password, confirm_password, role, full_name, timezone } = signUpDto;
         if (password !== confirm_password) {
             throw new common_1.BadRequestException('Passwords do not match');
         }
-        const existingUser = await this.userRepository.findOne({ where: { email } });
+        const existingUser = await this.userRepository.findOne({
+            where: { email },
+        });
         if (existingUser) {
             throw new common_1.ConflictException('Email already exists');
         }
@@ -45,7 +47,9 @@ let AuthService = class AuthService {
         const user = this.userRepository.create({
             email,
             password_hash: passwordHash,
-            role: User_entity_1.UserRole.USER,
+            role,
+            full_name,
+            timezone: timezone || 'UTC',
             status: User_entity_1.UserStatus.PENDING_VERIFICATION,
         });
         const savedUser = await this.userRepository.save(user);
@@ -62,13 +66,50 @@ let AuthService = class AuthService {
         await this.otpRepository.save(otpToken);
         await this.emailService.sendVerificationEmail(email, otp);
         return {
-            status: 'success',
-            message: 'Verification email sent',
-            data: {
-                user_id: savedUser.id,
-                email: savedUser.email,
-                verification_required: true,
+            success: true,
+            message: 'Verification OTP sent to email',
+            user_id: savedUser.id,
+            email: savedUser.email,
+        };
+    }
+    async resendOtp(email) {
+        const user = await this.userRepository.findOne({ where: { email } });
+        if (!user) {
+            return {
+                success: true,
+                message: 'If account exists, OTP has been sent',
+            };
+        }
+        if (user.email_verified) {
+            throw new common_1.BadRequestException('Email already verified');
+        }
+        const tenMinutesAgo = new Date();
+        tenMinutesAgo.setMinutes(tenMinutesAgo.getMinutes() - 10);
+        const recentOtps = await this.otpRepository.count({
+            where: {
+                user_id: user.id,
+                type: OtpToken_entity_1.OtpType.EMAIL_VERIFICATION,
+                created_at: tenMinutesAgo,
             },
+        });
+        if (recentOtps >= 3) {
+            throw new common_1.BadRequestException('Too many OTP requests. Please try again in 10 minutes.');
+        }
+        const otp = crypto_1.CryptoUtils.generateOtp(6);
+        const otpHash = crypto_1.CryptoUtils.hashOtp(otp);
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+        const otpToken = this.otpRepository.create({
+            user_id: user.id,
+            token: otpHash,
+            type: OtpToken_entity_1.OtpType.EMAIL_VERIFICATION,
+            expires_at: expiresAt,
+        });
+        await this.otpRepository.save(otpToken);
+        await this.emailService.sendVerificationEmail(email, otp);
+        return {
+            success: true,
+            message: 'Verification OTP resent to email',
         };
     }
     async verifyEmail(verifyEmailDto) {
@@ -106,7 +147,8 @@ let AuthService = class AuthService {
     }
     async signIn(signInDto) {
         const { email, password } = signInDto;
-        const user = await this.userRepository.createQueryBuilder('user')
+        const user = await this.userRepository
+            .createQueryBuilder('user')
             .addSelect('user.password_hash')
             .where('user.email = :email', { email })
             .getOne();
@@ -117,7 +159,8 @@ let AuthService = class AuthService {
         if (!isPasswordValid) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        if (user.status !== User_entity_1.UserStatus.ACTIVE && user.status !== User_entity_1.UserStatus.PENDING_VERIFICATION) {
+        if (user.status !== User_entity_1.UserStatus.ACTIVE &&
+            user.status !== User_entity_1.UserStatus.PENDING_VERIFICATION) {
             throw new common_1.UnauthorizedException(`Account is ${user.status}`);
         }
         user.last_login_at = new Date();
@@ -170,14 +213,36 @@ let AuthService = class AuthService {
         user.password_hash = await crypto_1.CryptoUtils.hashPassword(newPassword);
         await this.userRepository.save(user);
         return {
-            status: 'success',
+            success: true,
             message: 'Password reset successfully',
+        };
+    }
+    async changePassword(userId, currentPassword, newPassword) {
+        const user = await this.userRepository
+            .createQueryBuilder('user')
+            .addSelect('user.password_hash')
+            .where('user.id = :userId', { userId })
+            .getOne();
+        if (!user) {
+            throw new common_1.UnauthorizedException('User not found');
+        }
+        const isPasswordValid = await crypto_1.CryptoUtils.comparePassword(currentPassword, user.password_hash);
+        if (!isPasswordValid) {
+            throw new common_1.UnauthorizedException('Current password is incorrect');
+        }
+        user.password_hash = await crypto_1.CryptoUtils.hashPassword(newPassword);
+        await this.userRepository.save(user);
+        return {
+            success: true,
+            message: 'Password changed successfully',
         };
     }
     async refreshToken(refreshToken) {
         try {
             const payload = this.jwtService.verify(refreshToken);
-            const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+            const user = await this.userRepository.findOne({
+                where: { id: payload.sub },
+            });
             if (!user) {
                 throw new common_1.UnauthorizedException('User not found');
             }
@@ -208,7 +273,7 @@ let AuthService = class AuthService {
         await this.userRepository.softDelete(userId);
         return {
             status: 'success',
-            message: 'Account deletion initiated. Your data will be permanently deleted in 30 days.'
+            message: 'Account deletion initiated. Your data will be permanently deleted in 30 days.',
         };
     }
     async generateAuthResponse(user) {

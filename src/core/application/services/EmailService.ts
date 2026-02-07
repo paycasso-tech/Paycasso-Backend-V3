@@ -23,7 +23,9 @@ export class EmailService {
       });
       this.logger.log('📧 SMTP Transporter initialized');
     } else {
-      this.logger.warn('⚠️ SMTP credentials not found. Emails will be logged to console only.');
+      this.logger.warn(
+        '⚠️ SMTP credentials not found. Emails will be logged to console only.',
+      );
     }
   }
 
@@ -56,7 +58,12 @@ export class EmailService {
     await this.sendMail(email, subject, html, otp);
   }
 
-  private async sendMail(to: string, subject: string, html: string, otpForLog: string) {
+  private async sendMail(
+    to: string,
+    subject: string,
+    html: string,
+    otpForLog: string,
+  ) {
     if (this.transporter) {
       try {
         await this.transporter.sendMail({

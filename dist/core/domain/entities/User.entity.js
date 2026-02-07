@@ -14,7 +14,8 @@ const typeorm_1 = require("typeorm");
 const Wallet_entity_1 = require("./Wallet.entity");
 var UserRole;
 (function (UserRole) {
-    UserRole["USER"] = "user";
+    UserRole["CLIENT"] = "client";
+    UserRole["FREELANCER"] = "freelancer";
     UserRole["ADMIN"] = "admin";
 })(UserRole || (exports.UserRole = UserRole = {}));
 var UserStatus;
@@ -35,10 +36,24 @@ let User = class User {
     updated_at;
     deleted_at;
     last_login_at;
+    full_name;
+    timezone;
+    bio;
+    notification_preferences;
+    trust_score;
+    total_ratings;
+    completed_contracts;
+    total_volume_usdc;
     wallet_address;
     wallet_created_at;
     wallet_provider;
     wallets;
+    profile_completeness;
+    badges;
+    skills;
+    profile_picture_url;
+    country;
+    language;
 };
 exports.User = User;
 __decorate([
@@ -58,7 +73,6 @@ __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
         enum: UserRole,
-        default: UserRole.USER,
     }),
     __metadata("design:type", String)
 ], User.prototype, "role", void 0);
@@ -91,6 +105,38 @@ __decorate([
     __metadata("design:type", Date)
 ], User.prototype, "last_login_at", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], User.prototype, "full_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], User.prototype, "timezone", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], User.prototype, "bio", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], User.prototype, "notification_preferences", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 3, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], User.prototype, "trust_score", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], User.prototype, "total_ratings", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], User.prototype, "completed_contracts", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 15, scale: 6, default: 0 }),
+    __metadata("design:type", Number)
+], User.prototype, "total_volume_usdc", void 0);
+__decorate([
     (0, typeorm_1.Column)({ nullable: true, length: 42 }),
     __metadata("design:type", String)
 ], User.prototype, "wallet_address", void 0);
@@ -106,6 +152,30 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => Wallet_entity_1.Wallet, (wallet) => wallet.user),
     __metadata("design:type", Array)
 ], User.prototype, "wallets", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], User.prototype, "profile_completeness", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'simple-array', nullable: true }),
+    __metadata("design:type", Array)
+], User.prototype, "badges", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'simple-array', nullable: true }),
+    __metadata("design:type", Array)
+], User.prototype, "skills", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], User.prototype, "profile_picture_url", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], User.prototype, "country", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], User.prototype, "language", void 0);
 exports.User = User = __decorate([
     (0, typeorm_1.Entity)('users')
 ], User);
