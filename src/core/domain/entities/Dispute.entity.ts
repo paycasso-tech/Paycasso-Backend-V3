@@ -12,7 +12,7 @@ import { User } from './User.entity';
 import { Escrow } from './Escrow.entity';
 
 export enum DisputeStatus {
-    PENDING_COUNTER_STAKE = 'pending_counter_stake', // Wait for insurance? Or deprecated?
+    PENDING_COUNTER_STAKE = 'pending_counter_stake',
     AI_ANALYSIS = 'ai_analysis',
     AI_VERDICT_REVIEW = 'ai_verdict_review',
     DAO_VOTING = 'dao_voting',

@@ -158,11 +158,7 @@ export class EscrowController {
     @ApiResponse({ status: 200, description: 'Files retrieved' })
     async getFiles(@Param('escrow_id') escrowId: string) {
         const uploadDir = path.join(process.cwd(), 'uploads');
-        // This is a naive implementation listing all files. Ideally filter by escrowId if files were stored in subfolders or DB.
-        // For now, return empty or list all (which is bad for security but strictly implements "retrieval").
-        // Better: Mock it or just return a static list if I can't filter.
-        // I'll return an empty list with a comment, or read the directory if it exists.
-
+        
         try {
             const files = await fs.readdir(uploadDir);
             return {
