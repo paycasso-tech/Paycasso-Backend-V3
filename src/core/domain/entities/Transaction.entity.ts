@@ -4,6 +4,9 @@ import { User } from './User.entity';
 
 export enum TransactionType {
   DEPOSIT = 'deposit',
+  WITHDRAWAL = 'withdrawal',
+  ESCROW_FUND = 'escrow_fund',
+  ESCROW_RELEASE = 'escrow_release',
   RELEASE = 'release',
   REFUND = 'refund',
   FEE_PAYMENT = 'fee_payment',
@@ -73,6 +76,9 @@ export class Transaction {
 
   @Column({ type: 'bigint', nullable: true })
   block_number: number;
+
+  @Column({ type: 'decimal', precision: 36, scale: 18, nullable: true })
+  gas_used: string;
 
   @Column({ type: 'text', nullable: true })
   error_message: string;

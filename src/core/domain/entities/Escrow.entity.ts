@@ -1,15 +1,18 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index, OneToMany } from 'typeorm';
 import { User } from './User.entity';
 import { Transaction } from './Transaction.entity';
-import { Milestone } from './Milestone.entity';
 
 export enum EscrowStatus {
-  CREATED = 'created',
+  DRAFT = 'draft',
+  PENDING_ACCEPTANCE = 'pending_acceptance',
+  PENDING_FUNDING = 'pending_funding',
   FUNDED = 'funded',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
   RELEASED = 'released',
-  REFUNDED = 'refunded',
   DISPUTED = 'disputed',
   CANCELLED = 'cancelled',
+  REJECTED = 'rejected',
 }
 
 @Entity('escrows')
@@ -53,19 +56,28 @@ export class Escrow {
   network: string;
 
   // Smart Contract Details
+  @Column({ nullable: true })
+  on_chain_job_id: number;
+
   @Column({ nullable: true, length: 42 })
   escrow_contract_address: string;
 
-  @Column({ nullable: true, length: 66 })
-  deposit_tx_hash: string;
+  @Column({ nullable: true, length: 42 })
+  deposit_address: string;
 
-  @Column({ nullable: true, length: 66 })
-  release_tx_hash: string;
+  @Column({ type: 'varchar', nullable: true, length: 66 })
+  deposit_tx_hash: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 66 })
+  wallet_deposit_tx_hash: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 66 })
+  release_tx_hash: string | null;
 
   @Column({
     type: 'enum',
     enum: EscrowStatus,
-    default: EscrowStatus.CREATED
+    default: EscrowStatus.DRAFT
   })
   status: EscrowStatus;
 
@@ -78,19 +90,40 @@ export class Escrow {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, default: 2.5 })
+  @Column({ type: 'text', nullable: true })
+  terms: string;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 5.0 })
   platform_fee_percentage: number;
 
   @Column({ type: 'decimal', precision: 36, scale: 18, nullable: true })
   platform_fee_amount: string;
 
+  @Column({ type: 'timestamp', nullable: true })
+  deadline: Date;
+
+  @Column({ default: 168 })
+  auto_release_after_hours: number;
+
+  @Column({ default: false })
+  has_active_dispute: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  accepted_at: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
   funded_at: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  started_at: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  completed_at: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
   released_at: Date;
 
   @UpdateDateColumn()
@@ -98,7 +131,4 @@ export class Escrow {
 
   @OneToMany(() => Transaction, (tx) => tx.escrow)
   transactions: Transaction[];
-
-  @OneToMany(() => Milestone, (m) => m.escrow)
-  milestones: Milestone[];
 }

@@ -21,10 +21,21 @@ export class EmailService {
           pass: process.env.SMTP_PASS,
         },
       });
-      this.logger.log('📧 SMTP Transporter initialized');
+      this.logger.log(' SMTP Transporter initialized');
     } else {
-      this.logger.warn('⚠️ SMTP credentials not found. Emails will be logged to console only.');
+      this.logger.warn(' SMTP credentials not found. Emails will be logged to console only.');
     }
+  }
+
+  async sendNotificationEmail(email: string, subject: string, message: string): Promise<void> {
+    const html = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2>${subject}</h2>
+        <p>${message}</p>
+        <p>Log in to the platform to view details.</p>
+      </div>
+    `;
+    await this.sendMail(email, subject, html, 'NOTIFICATION');
   }
 
   async sendVerificationEmail(email: string, otp: string): Promise<void> {
@@ -65,14 +76,14 @@ export class EmailService {
           subject,
           html,
         });
-        this.logger.log(`✅ Email sent to ${to}`);
+        this.logger.log(` Email sent to ${to}`);
       } catch (error) {
-        this.logger.error(`❌ Failed to send email to ${to}:`, error);
+        this.logger.error(` Failed to send email to ${to}:`, error);
         throw error;
       }
     } else {
       // Fallback for development without SMTP
-      this.logger.log(`[DEV MODE] 📧 Sending Email to ${to}:`);
+      this.logger.log(`[DEV MODE]  Sending Email to ${to}:`);
       this.logger.log(`Subject: ${subject}`);
       this.logger.log(`OTP Content: ${otpForLog}`);
     }

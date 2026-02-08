@@ -8,12 +8,17 @@ import { AppService } from './app.service';
 import { AuthModule } from './Auth.module';
 import { WalletModule } from './Wallet.module';
 import { EscrowModule } from './Escrow.module';
+import { DisputeModule } from './Dispute.module';
+import { NotificationModule } from './Notification.module';
+import { BlockchainModule } from './Blockchain.module';
 
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, jwtConfig],
@@ -24,12 +29,15 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
         configService.get('database')!,
     }),
     ThrottlerModule.forRoot([{
-        ttl: 60000,
-        limit: 10,
+      ttl: 60000,
+      limit: 10,
     }]),
     AuthModule,
     WalletModule,
     EscrowModule,
+    DisputeModule,
+    NotificationModule,
+    BlockchainModule,
   ],
   controllers: [AppController],
   providers: [
@@ -40,4 +48,4 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

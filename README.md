@@ -3,11 +3,11 @@
 This is the NestJS backend for the Escrow Platform, featuring fintech-grade security and a modular architecture.
 
 ## Status: Phase 1 (Authentication & Foundation)
-- ✅ Project Structure (Clean Architecture)
-- ✅ Database Schema (Users, OTPs)
-- ✅ Authentication (Signup, Login, Verify Email)
-- ✅ Security (JWT, Argon2/Bcrypt, Rate Limiting, Helmet)
-- ✅ API Documentation (Swagger)
+-  Project Structure (Clean Architecture)
+-  Database Schema (Users, OTPs)
+-  Authentication (Signup, Login, Verify Email)
+-  Security (JWT, Argon2/Bcrypt, Rate Limiting, Helmet)
+-  API Documentation (Swagger)
 
 ## Prerequisites
 - Node.js (v18+)

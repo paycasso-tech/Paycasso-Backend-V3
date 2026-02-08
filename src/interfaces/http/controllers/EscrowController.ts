@@ -8,7 +8,7 @@ import { EscrowService } from '../../../core/application/services/EscrowService'
 @UseGuards(AuthGuard('jwt'))
 @Controller('api/v1/escrows')
 export class EscrowController {
-  constructor(private readonly escrowService: EscrowService) {}
+  constructor(private readonly escrowService: EscrowService) { }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -25,7 +25,7 @@ export class EscrowController {
 
   @Post(':id/deposit')
   @ApiOperation({ summary: 'Register a deposit transaction' })
-  async registerDeposit(@Param('id') id: string, @Body() body: any) {
-    return this.escrowService.registerDeposit(id, body.tx_hash, body.from_address);
+  async registerDeposit(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.escrowService.confirmFunding(req.user.userId, id, body.tx_hash);
   }
 }

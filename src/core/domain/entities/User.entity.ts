@@ -51,18 +51,18 @@ export class User {
   @DeleteDateColumn()
   deleted_at: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   last_login_at: Date;
 
   // Phase 2 Fields
-  @Column({ nullable: true, length: 42 })
-  wallet_address: string; // Primary wallet address shortcut
+  @Column({ type: 'varchar', nullable: true, length: 42 })
+  wallet_address: string | null; // Primary wallet address shortcut
 
-  @Column({ nullable: true })
-  wallet_created_at: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  wallet_created_at: Date | null;
 
-  @Column({ nullable: true, default: 'coinbase_embedded' })
-  wallet_provider: string;
+  @Column({ type: 'varchar', nullable: true, default: 'coinbase_embedded' })
+  wallet_provider: string | null;
 
   @OneToMany(() => Wallet, (wallet) => wallet.user)
   wallets: Wallet[];
