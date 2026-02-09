@@ -9,6 +9,7 @@ import { SignInDto } from '../dto/SignInDto';
 import { VerifyEmailDto } from '../dto/VerifyEmailDto';
 import { CryptoUtils } from '../../../shared/utils/crypto';
 import { EmailService } from './EmailService';
+import { WalletLoginDto } from '../dto/WalletLoginDto';
 
 @Injectable()
 export class AuthService {
@@ -19,10 +20,10 @@ export class AuthService {
     private otpRepository: Repository<OtpToken>,
     private jwtService: JwtService,
     private emailService: EmailService,
-  ) {}
+  ) { }
 
   async signUp(signUpDto: SignUpDto) {
-    const { email, password, confirm_password } = signUpDto;
+    const { email, password, confirm_password, username } = signUpDto;
 
     if (password !== confirm_password) {
       throw new BadRequestException('Passwords do not match');
@@ -33,10 +34,18 @@ export class AuthService {
       throw new ConflictException('Email already exists');
     }
 
+    if (username) {
+      const existingUsername = await this.userRepository.findOne({ where: { username } });
+      if (existingUsername) {
+        throw new ConflictException('Username already taken');
+      }
+    }
+
     const passwordHash = await CryptoUtils.hashPassword(password);
 
     const user = this.userRepository.create({
       email,
+      username,
       password_hash: passwordHash,
       role: UserRole.USER,
       status: UserStatus.PENDING_VERIFICATION,
@@ -47,7 +56,7 @@ export class AuthService {
     // Generate and send OTP
     const otp = CryptoUtils.generateOtp(6);
     const otpHash = CryptoUtils.hashOtp(otp);
-    
+
     // Expires in 10 minutes
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
@@ -68,6 +77,7 @@ export class AuthService {
       data: {
         user_id: savedUser.id,
         email: savedUser.email,
+        username: savedUser.username,
         verification_required: true,
       },
     };
@@ -96,7 +106,7 @@ export class AuthService {
     });
 
     if (!otpRecord) {
-        throw new BadRequestException('Invalid or expired OTP');
+      throw new BadRequestException('Invalid or expired OTP');
     }
 
     if (!CryptoUtils.compareOtp(otp, otpRecord.token)) {
@@ -121,7 +131,7 @@ export class AuthService {
 
   async signIn(signInDto: SignInDto) {
     const { email, password } = signInDto;
-    
+
     const user = await this.userRepository.createQueryBuilder('user')
       .addSelect('user.password_hash')
       .where('user.email = :email', { email })
@@ -137,10 +147,54 @@ export class AuthService {
     }
 
     if (user.status !== UserStatus.ACTIVE && user.status !== UserStatus.PENDING_VERIFICATION) {
-       throw new UnauthorizedException(`Account is ${user.status}`);
+      throw new UnauthorizedException(`Account is ${user.status}`);
     }
-    
+
     // Update last login
+    user.last_login_at = new Date();
+    await this.userRepository.save(user);
+
+    return this.generateAuthResponse(user);
+  }
+
+  async walletLogin(dto: WalletLoginDto) {
+    const { wallet_address, signature, message } = dto;
+    const { verifyMessage } = await import('ethers');
+
+    try {
+      const recoveredAddress = verifyMessage(message, signature);
+      if (recoveredAddress.toLowerCase() !== wallet_address.toLowerCase()) {
+        throw new UnauthorizedException('Invalid signature');
+      }
+    } catch (e) {
+      throw new UnauthorizedException('Invalid signature format');
+    }
+
+    // Find user by wallet address
+    let user = await this.userRepository.findOne({ where: { wallet_address } });
+
+    if (!user) {
+      // Auto-register logic for wallet-only users
+      // Since email is required by entity but we don't have it, we use a placeholder.
+      // The user can update it later.
+      const placeholderEmail = `${wallet_address.toLowerCase()}@wallet.paycasso.local`;
+
+      user = this.userRepository.create({
+        email: placeholderEmail,
+        username: wallet_address.toLowerCase().slice(0, 10), // Default username
+        wallet_address: wallet_address.toLowerCase(),
+        password_hash: '', // No password
+        role: UserRole.USER,
+        status: UserStatus.ACTIVE, // Auto-active
+        email_verified: true,
+        wallet_provider: 'external', // e.g. Metamask/Coinbase
+        wallet_created_at: new Date(),
+      });
+
+      user = await this.userRepository.save(user);
+    }
+
+    // Login successful
     user.last_login_at = new Date();
     await this.userRepository.save(user);
 
@@ -178,7 +232,7 @@ export class AuthService {
   async resetPassword(email: string, otp: string, newPassword: string) {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
-        throw new BadRequestException('Invalid request');
+      throw new BadRequestException('Invalid request');
     }
 
     const otpRecord = await this.otpRepository.findOne({
@@ -216,9 +270,9 @@ export class AuthService {
     try {
       const payload = this.jwtService.verify(refreshToken);
       const user = await this.userRepository.findOne({ where: { id: payload.sub } });
-      
+
       if (!user) {
-         throw new UnauthorizedException('User not found');
+        throw new UnauthorizedException('User not found');
       }
 
       // In a real app, verify revocation status here if storing refresh tokens in DB
@@ -256,15 +310,15 @@ export class AuthService {
     await this.userRepository.softDelete(userId); // Updates deleted_at
 
     return {
-        status: 'success',
-        message: 'Account deletion initiated. Your data will be permanently deleted in 30 days.'
+      status: 'success',
+      message: 'Account deletion initiated. Your data will be permanently deleted in 30 days.'
     };
   }
 
   private async generateAuthResponse(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' }); 
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     return {
       status: 'success',
@@ -275,6 +329,7 @@ export class AuthService {
         user: {
           id: user.id,
           email: user.email,
+          username: user.username,
           role: user.role,
           email_verified: user.email_verified,
         },

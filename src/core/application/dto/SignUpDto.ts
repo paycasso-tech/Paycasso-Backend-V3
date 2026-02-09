@@ -2,6 +2,11 @@ import { IsEmail, IsString, MinLength, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SignUpDto {
+  @ApiProperty({ example: 'parth' })
+  @IsString()
+  @MinLength(3, { message: 'Username must be at least 3 characters long' })
+  username: string;
+
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail({}, { message: 'Invalid email address' })
   email: string;

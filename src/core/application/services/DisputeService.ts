@@ -465,4 +465,21 @@ export class DisputeService {
     async getVoterInfo(address: string) {
         return this.blockchainService.getVoterInfo(address);
     }
+
+    async getUserDisputeStats(userId: string): Promise<{ active: number, resolved: number }> {
+        const active = await this.disputeRepository.createQueryBuilder('dispute')
+            .leftJoin('dispute.escrow', 'escrow')
+            .where('(escrow.buyer_id = :userId OR escrow.seller_id = :userId)', { userId })
+            .andWhere('dispute.status != :status', { status: DisputeStatus.RESOLVED })
+            .andWhere('dispute.status != :cancelled', { cancelled: DisputeStatus.CANCELLED })
+            .getCount();
+
+        const resolved = await this.disputeRepository.createQueryBuilder('dispute')
+            .leftJoin('dispute.escrow', 'escrow')
+            .where('(escrow.buyer_id = :userId OR escrow.seller_id = :userId)', { userId })
+            .andWhere('dispute.status = :status', { status: DisputeStatus.RESOLVED })
+            .getCount();
+
+        return { active, resolved };
+    }
 }

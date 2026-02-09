@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Escrow, EscrowStatus } from '../../domain/entities/Escrow.entity';
 import { Transaction, TransactionType, TransactionStatus } from '../../domain/entities/Transaction.entity';
 import { User } from '../../domain/entities/User.entity';
@@ -367,5 +367,35 @@ export class EscrowService {
             .getManyAndCount();
 
         return { escrows, total };
+    }
+
+    async getUserStats(userId: string): Promise<{ pending: number, completed: number }> {
+        const pendingStatuses = [
+            EscrowStatus.PENDING_ACCEPTANCE,
+            EscrowStatus.PENDING_FUNDING,
+            EscrowStatus.FUNDED,
+            EscrowStatus.IN_PROGRESS
+        ];
+
+        const completedStatuses = [
+            EscrowStatus.COMPLETED,
+            EscrowStatus.RELEASED
+        ];
+
+        const pending = await this.escrowRepository.count({
+            where: [
+                { buyer_id: userId, status: In(pendingStatuses) },
+                { seller_id: userId, status: In(pendingStatuses) }
+            ]
+        });
+
+        const completed = await this.escrowRepository.count({
+            where: [
+                { buyer_id: userId, status: In(completedStatuses) },
+                { seller_id: userId, status: In(completedStatuses) }
+            ]
+        });
+
+        return { pending, completed };
     }
 }

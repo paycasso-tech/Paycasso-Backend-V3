@@ -7,11 +7,12 @@ import { SignInDto } from '../../../core/application/dto/SignInDto';
 import { VerifyEmailDto } from '../../../core/application/dto/VerifyEmailDto';
 import { AuthResponseDto } from '../../../core/application/dto/AuthResponseDto';
 import { ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto, DeleteAccountDto } from '../../../core/application/dto/AuthActions.dto';
+import { WalletLoginDto } from '../../../core/application/dto/WalletLoginDto';
 
 @ApiTags('Auth')
 @Controller('api/v1/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('signup')
   @ApiOperation({ summary: 'Register a new user' })
@@ -30,10 +31,18 @@ export class AuthController {
 
   @Post('signin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Log in user' })
+  @ApiOperation({ summary: 'Log in user with email/password' })
   @ApiResponse({ status: 200, description: 'Login successful', type: AuthResponseDto })
   async signIn(@Body() signInDto: SignInDto) {
     return this.authService.signIn(signInDto);
+  }
+
+  @Post('wallet-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Log in with Wallet (Coinbase/MetaMask)' })
+  @ApiResponse({ status: 200, description: 'Login successful', type: AuthResponseDto })
+  async walletLogin(@Body() dto: WalletLoginDto) {
+    return this.authService.walletLogin(dto);
   }
 
   @Post('forgot-password')

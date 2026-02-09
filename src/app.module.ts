@@ -11,6 +11,7 @@ import { EscrowModule } from './Escrow.module';
 import { DisputeModule } from './Dispute.module';
 import { NotificationModule } from './Notification.module';
 import { BlockchainModule } from './Blockchain.module';
+import { UserModule } from './User.module';
 
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -37,7 +38,9 @@ import { ScheduleModule } from '@nestjs/schedule';
     EscrowModule,
     DisputeModule,
     NotificationModule,
+    NotificationModule,
     BlockchainModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [
