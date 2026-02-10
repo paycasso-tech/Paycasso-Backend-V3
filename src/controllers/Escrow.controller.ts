@@ -9,7 +9,6 @@ import {
     Request,
     UseInterceptors,
     UploadedFile,
-    UploadedFiles,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as fs from 'fs/promises';
@@ -129,25 +128,27 @@ export class EscrowController {
         @Request() req: any,
         @Param('escrow_id') escrowId: string,
         @Body() uploadDto: UploadFileDto,
-        @UploadedFiles() files: any[],
+        @UploadedFile() file: any,
     ) {
-        const uploadDir = path.join(process.cwd(), 'uploads');
+        if (!file) {
+            return { success: false, error: 'No file uploaded' };
+        }
+
+        // Create escrow-specific upload directory
+        const uploadDir = path.join(process.cwd(), 'uploads', escrowId);
         await fs.mkdir(uploadDir, { recursive: true });
 
-        const savedFiles = [];
-        for (const file of files) {
-            const fileName = `${Date.now()}-${file.originalname}`;
-            const filePath = path.join(uploadDir, fileName);
-            await fs.writeFile(filePath, file.buffer);
-            savedFiles.push({
-                name: file.originalname,
-                path: `/uploads/${fileName}`,
-            });
-        }
+        const fileName = `${Date.now()}-${file.originalname}`;
+        const filePath = path.join(uploadDir, fileName);
+        await fs.writeFile(filePath, file.buffer);
 
         return {
             success: true,
-            files: savedFiles,
+            file: {
+                name: file.originalname,
+                path: `/uploads/${escrowId}/${fileName}`,
+                size: file.size,
+            },
             type: uploadDto.type,
             description: uploadDto.description,
         };
@@ -157,12 +158,12 @@ export class EscrowController {
     @ApiOperation({ summary: 'Get escrow files' })
     @ApiResponse({ status: 200, description: 'Files retrieved' })
     async getFiles(@Param('escrow_id') escrowId: string) {
-        const uploadDir = path.join(process.cwd(), 'uploads');
-        
+        const uploadDir = path.join(process.cwd(), 'uploads', escrowId);
+
         try {
             const files = await fs.readdir(uploadDir);
             return {
-                files: files.map(f => ({ name: f, url: `/uploads/${f}` })),
+                files: files.map(f => ({ name: f, url: `/uploads/${escrowId}/${f}` })),
             };
         } catch (e) {
             return { files: [] };

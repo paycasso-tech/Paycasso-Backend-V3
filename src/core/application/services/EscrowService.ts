@@ -58,8 +58,8 @@ export class EscrowService {
             seller_wallet_address: seller.wallet_address || 'TBD',
             amount: createDto.total_amount_usdc.toString(),
             currency: 'USDC',
-            network: 'base-sepolia',
-            token_address: '0x...', // Get from config
+            network: this.blockchainService.getProvider() ? 'base-sepolia' : 'base',
+            token_address: this.blockchainService['configService']?.get('USDC_CONTRACT_ADDRESS') || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
             title: createDto.title,
             description: createDto.description,
             terms: createDto.terms,
@@ -196,13 +196,10 @@ export class EscrowService {
             // we will rely on a basic assumption or the listener.
             // Ideally, we'd enable the listener to find this escrow via hash.
 
-            escrow.status = EscrowStatus.FUNDED;
+            escrow.status = EscrowStatus.IN_PROGRESS; // Funded + In Progress (atomic)
             escrow.funded_at = new Date();
-            escrow.deposit_tx_hash = hash || null;
-
-            // Update status for atomic flow
-            escrow.status = EscrowStatus.IN_PROGRESS;
             escrow.started_at = new Date();
+            escrow.deposit_tx_hash = hash || null;
 
             await this.escrowRepository.save(escrow);
 
@@ -226,12 +223,13 @@ export class EscrowService {
 
     // confirmFunding is deprecated as funding is now synchronous via backend wallet
     async confirmFunding(userId: string, escrowId: string, txHash: string): Promise<Transaction> {
-        return this.txRepository.create({
+        const tx = this.txRepository.create({
             escrow_id: escrowId,
             user_id: userId,
             tx_hash: txHash,
             status: TransactionStatus.CONFIRMED
         });
+        return await this.txRepository.save(tx);
     }
 
     async completeEscrow(userId: string, escrowId: string): Promise<Escrow> {
@@ -240,6 +238,15 @@ export class EscrowService {
         });
 
         if (!escrow) throw new NotFoundException('Escrow not found');
+
+        // Authorization: Only buyer or seller can complete
+        if (escrow.buyer_id !== userId && escrow.seller_id !== userId) {
+            throw new BadRequestException('Only the client or freelancer can complete this escrow');
+        }
+
+        if (escrow.status !== EscrowStatus.IN_PROGRESS && escrow.status !== EscrowStatus.FUNDED) {
+            throw new BadRequestException('Escrow must be in progress to complete');
+        }
 
         escrow.status = EscrowStatus.COMPLETED;
         escrow.completed_at = new Date();
@@ -310,6 +317,11 @@ export class EscrowService {
         });
 
         if (!escrow) throw new NotFoundException('Escrow not found');
+
+        // Authorization: Only buyer or seller can cancel
+        if (escrow.buyer_id !== userId && escrow.seller_id !== userId) {
+            throw new BadRequestException('Only the client or freelancer can cancel this escrow');
+        }
 
         // Only allow cancellation if not funded or requires mutual agreement
         if (escrow.status === EscrowStatus.FUNDED || escrow.status === EscrowStatus.IN_PROGRESS || escrow.status === EscrowStatus.DISPUTED) {

@@ -116,10 +116,10 @@ export class Dispute {
 
     // DAO Voting
     @Column({ type: 'timestamp', nullable: true })
-    votingStartsAt: Date;
+    votingStartsAt: Date | null;
 
     @Column({ type: 'timestamp', nullable: true })
-    votingEndsAt: Date;
+    votingEndsAt: Date | null;
 
     @Column('int', { default: 0 })
     votesForClient: number;

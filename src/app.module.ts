@@ -38,7 +38,6 @@ import { ScheduleModule } from '@nestjs/schedule';
     EscrowModule,
     DisputeModule,
     NotificationModule,
-    NotificationModule,
     BlockchainModule,
     UserModule,
   ],

@@ -730,7 +730,29 @@ export class BlockchainService implements OnModuleInit {
 
   // --- SQL API Implementation ---
 
-  async runSql(query: string): Promise<any[]> {
+  /**
+   * Validates an Ethereum address to prevent SQL injection.
+   * Only allows valid hex addresses (0x + 40 hex chars).
+   */
+  private validateAddress(address: string): string {
+    const cleaned = address.trim().toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/i.test(cleaned)) {
+      throw new Error(`Invalid Ethereum address: ${address}`);
+    }
+    return cleaned;
+  }
+
+  /**
+   * Execute a SQL query against the CDP Data API with retry logic and caching.
+   * 
+   * IMPORTANT: The CDP SQL API only supports Base Mainnet data.
+   * Response format: { result: [...], schema: {...}, metadata: {...} }
+   * 
+   * @param query - SQL query string (ClickHouse dialect)
+   * @param cacheMaxAgeMs - Cache freshness tolerance in ms (default 500ms, max 900000ms)
+   * @param retries - Number of retries on failure (default 2)
+   */
+  async runSql(query: string, cacheMaxAgeMs: number = 500, retries: number = 2): Promise<any[]> {
     const apiKeyName = this.configService.get('COINBASE_API_KEY_NAME');
     const privateKey = this.configService.get('COINBASE_API_KEY_SECRET_KEY')?.replace(/\\n/g, '\n');
 
@@ -739,53 +761,207 @@ export class BlockchainService implements OnModuleInit {
       return [];
     }
 
-    try {
-      this.logger.log('Executing SQL Query against CDP Data API...');
-      const { CoinbaseAuthenticator } = await import('@coinbase/coinbase-sdk');
-      const auth = new CoinbaseAuthenticator(apiKeyName, privateKey, 'sdk');
-      const url = 'https://api.cdp.coinbase.com/platform/v2/data/query/run';
-      const jwt = await auth.buildJWT(url, 'POST');
+    let lastError: Error | null = null;
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwt}`,
-        },
-        body: JSON.stringify({ sql: query }),
-      });
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+          this.logger.log(`SQL API: Retry ${attempt}/${retries} after ${backoffMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
 
-      if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`CDP SQL API Error: ${response.status} - ${err}`);
+        this.logger.debug(`Executing CDP SQL Query (attempt ${attempt + 1})...`);
+        const { CoinbaseAuthenticator } = await import('@coinbase/coinbase-sdk');
+        const auth = new CoinbaseAuthenticator(apiKeyName, privateKey, 'sdk');
+        const url = 'https://api.cdp.coinbase.com/platform/v2/data/query/run';
+        const jwt = await auth.buildJWT(url, 'POST');
+
+        const body: any = { sql: query };
+        if (cacheMaxAgeMs > 0) {
+          body.cache = { maxAgeMs: Math.min(cacheMaxAgeMs, 900000) };
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const err = await response.text();
+          throw new Error(`CDP SQL API Error: ${response.status} - ${err}`);
+        }
+
+        const data = await response.json();
+
+        // API returns { result: [...], schema: {...}, metadata: {...} }
+        const rows = data.result || [];
+
+        if (data.metadata) {
+          this.logger.debug(
+            `CDP SQL: ${data.metadata.rowCount ?? rows.length} rows, ` +
+            `${data.metadata.executionTimeMs}ms, cached=${data.metadata.cached}`
+          );
+        }
+
+        return rows;
+      } catch (e) {
+        lastError = e;
+        this.logger.warn(`SQL API attempt ${attempt + 1} failed: ${e.message}`);
       }
-
-      const data = await response.json();
-      return data.data || []; // API returns { data: [...] } usually, or result
-    } catch (e) {
-      this.logger.warn(`SQL API Query Failed: ${e.message}`);
-      return [];
     }
+
+    this.logger.error(`SQL API Query Failed after ${retries + 1} attempts: ${lastError?.message}`);
+    return [];
   }
 
+  /**
+   * Query USDC deposits (transfers) to a specific wallet address.
+   * Uses the dedicated `base.transfers` table for Transfer events.
+   * 
+   * NOTE: CDP SQL API only indexes Base Mainnet. If running on testnet (base-sepolia),
+   * this will not find testnet transactions. Use RPC polling as fallback.
+   */
   async queryDepositEvents(toAddress: string): Promise<any[]> {
     const usdc = this.configService.get('USDC_CONTRACT_ADDRESS');
     if (!usdc) throw new Error('USDC_CONTRACT_ADDRESS not configured');
 
-    // Updated Query for Base Sepolia (or Base) ERC20 Transfers
+    // Validate addresses to prevent SQL injection
+    const safeToAddr = this.validateAddress(toAddress);
+    const safeUsdc = this.validateAddress(usdc);
+
     const query = `
       SELECT 
         block_timestamp,
+        block_number,
         transaction_hash,
-        parameters['from'] as from_address,
-        parameters['value'] as value
-      FROM base.events 
-      WHERE event_signature = 'Transfer(address,address,uint256)'
-        AND address = '${usdc.toLowerCase()}'
-        AND parameters['to'] = '${toAddress.toLowerCase()}'
+        from_address,
+        to_address,
+        value
+      FROM base.transfers 
+      WHERE to_address = '${safeToAddr}'
+        AND address = '${safeUsdc}'
       ORDER BY block_timestamp DESC 
       LIMIT 10
     `;
-    return this.runSql(query);
+    // Cache for 2 seconds since deposit polling runs every minute
+    return this.runSql(query, 2000);
+  }
+
+  /**
+   * Get full transfer history for a wallet address (both sent and received).
+   * Useful for building the transaction history view in the wallet.
+   */
+  async getWalletTransferHistory(
+    walletAddress: string,
+    limit: number = 50,
+    tokenAddress?: string,
+  ): Promise<any[]> {
+    const safeAddr = this.validateAddress(walletAddress);
+
+    let tokenFilter = '';
+    if (tokenAddress) {
+      const safeToken = this.validateAddress(tokenAddress);
+      tokenFilter = `AND address = '${safeToken}'`;
+    }
+
+    const query = `
+      SELECT 
+        block_timestamp,
+        block_number,
+        transaction_hash,
+        from_address,
+        to_address,
+        address AS token_address,
+        value
+      FROM base.transfers 
+      WHERE (from_address = '${safeAddr}' OR to_address = '${safeAddr}')
+        ${tokenFilter}
+      ORDER BY block_timestamp DESC 
+      LIMIT ${Math.min(limit, 100)}
+    `;
+    return this.runSql(query, 5000);
+  }
+
+  /**
+   * Query smart contract events for the escrow contract.
+   * Useful for auditing on-chain activity for a specific escrow.
+   */
+  async getContractEvents(
+    contractAddress: string,
+    eventSignature?: string,
+    limit: number = 50,
+  ): Promise<any[]> {
+    const safeAddr = this.validateAddress(contractAddress);
+
+    // Sanitize event signature (only allow alphanumeric, parens, commas, spaces)
+    let eventFilter = '';
+    if (eventSignature) {
+      const safeEvent = eventSignature.replace(/[^a-zA-Z0-9(),\s]/g, '');
+      eventFilter = `AND event_signature = '${safeEvent}'`;
+    }
+
+    const query = `
+      SELECT 
+        block_timestamp,
+        block_number,
+        transaction_hash,
+        event_signature,
+        log_index
+      FROM base.events 
+      WHERE address = '${safeAddr}'
+        ${eventFilter}
+      ORDER BY block_timestamp DESC 
+      LIMIT ${Math.min(limit, 100)}
+    `;
+    return this.runSql(query, 5000);
+  }
+
+  /**
+   * Get the latest block info from Base.
+   * Useful for health checks and sync status verification.
+   */
+  async getLatestBlockInfo(): Promise<any> {
+    const query = `
+      SELECT block_number, block_timestamp, transaction_count
+      FROM base.blocks 
+      ORDER BY block_timestamp DESC 
+      LIMIT 1
+    `;
+    const rows = await this.runSql(query, 1000);
+    return rows[0] || null;
+  }
+
+  /**
+   * Verify a transaction exists on-chain via CDP SQL API.
+   * Complement to the RPC-based verifyTransaction method.
+   */
+  async verifyTransactionViaSql(txHash: string): Promise<any> {
+    // Validate tx hash format (0x + 64 hex chars)
+    const safeTx = txHash.trim().toLowerCase();
+    if (!/^0x[0-9a-f]{64}$/i.test(safeTx)) {
+      throw new Error(`Invalid transaction hash: ${txHash}`);
+    }
+
+    const query = `
+      SELECT 
+        transaction_hash,
+        block_number,
+        block_timestamp,
+        from_address,
+        to_address,
+        value,
+        gas_used,
+        status
+      FROM base.transactions 
+      WHERE transaction_hash = '${safeTx}'
+      LIMIT 1
+    `;
+    const rows = await this.runSql(query, 10000);
+    return rows[0] || null;
   }
 }

@@ -72,7 +72,7 @@ export class DisputeService {
             reason,
             description,
             desiredOutcome: desired_outcome,
-            status: DisputeStatus.AI_ANALYSIS,
+            status: DisputeStatus.PENDING_COUNTER_STAKE, // Wait for counter-party before AI analysis
             clientStakeUsdc: insuranceStake,
             clientStaked: true, // Already staked at job creation
             freelancerStakeUsdc: insuranceStake,
@@ -161,10 +161,10 @@ export class DisputeService {
             dispute.clientClaim = response;
         }
 
-        // Move to DAO voting
-        dispute.status = DisputeStatus.DAO_VOTING;
-        dispute.votingStartsAt = new Date();
-        dispute.votingEndsAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+        // Move to AI Analysis (not directly to DAO)
+        dispute.status = DisputeStatus.AI_ANALYSIS;
+        dispute.votingStartsAt = null; // Will be set when/if escalated to DAO
+        dispute.votingEndsAt = null;
 
         const updatedDispute = await this.disputeRepository.save(dispute);
 
@@ -173,7 +173,7 @@ export class DisputeService {
             userId: dispute.raisedById,
             type: 'DISPUTE_COUNTER_STAKED',
             title: 'Counter-stake received',
-            message: 'The other party has counter-staked. DAO voting has begun.',
+            message: 'The other party has counter-staked. AI analysis will begin shortly.',
             escrowId: dispute.escrowId,
             disputeId: dispute.id,
         });
@@ -440,7 +440,7 @@ export class DisputeService {
             throw new BadRequestException('Cannot withdraw a resolved dispute');
         }
 
-        if (new Date() > dispute.votingEndsAt) {
+        if (dispute.votingEndsAt && new Date() > dispute.votingEndsAt) {
             throw new BadRequestException('Cannot withdraw after voting has ended');
         }
 

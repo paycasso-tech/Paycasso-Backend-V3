@@ -24,6 +24,8 @@ import {
     ListDisputesQueryDto,
 } from '../core/application/dto/Dispute.dto';
 import { JwtAuthGuard } from '../core/application/strategies/jwt.strategy';
+import { RolesGuard, Roles } from '../shared/guards/roles.guard';
+import { UserRole } from '../core/domain/entities/User.entity';
 
 @ApiTags('Disputes')
 @ApiBearerAuth()
@@ -119,6 +121,8 @@ export class DisputeController {
     @Post(':dispute_id/resolve')
     @ApiOperation({ summary: 'Resolve dispute (Admin/Auto)' })
     @ApiResponse({ status: 200, description: 'Dispute resolved' })
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
     async resolveDispute(
         @Param('dispute_id') disputeId: string,
         @Body() resolveDto: ResolveDisputeDto,
@@ -160,18 +164,24 @@ export class DisputeController {
 
     @Post('admin/register-voter')
     @ApiOperation({ summary: 'Register a new DAO voter (Admin only)' })
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
     async registerVoter(@Body('address') address: string) {
         return this.disputeService.registerVoter(address);
     }
 
     @Post('admin/adjust-karma')
     @ApiOperation({ summary: 'Adjust voter karma (Admin only)' })
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
     async adjustKarma(@Body('address') address: string, @Body('karma') karma: number) {
         return this.disputeService.adjustVoterKarma(address, karma);
     }
 
     @Get('admin/voting-session/:job_id')
     @ApiOperation({ summary: 'Get session data from chain (Admin only)' })
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
     async getSession(@Param('job_id') jobId: number) {
         return this.disputeService.getOnChainSession(jobId);
     }

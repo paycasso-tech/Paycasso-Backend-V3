@@ -58,4 +58,18 @@ export class WalletController {
     async verifyTransaction(@Param('tx_hash') txHash: string) {
         return this.walletService.verifyTransaction(txHash);
     }
+
+    @Get('onchain-transfers')
+    @ApiOperation({ summary: 'Get on-chain transfer history from CDP SQL API (Base Mainnet only)' })
+    @ApiResponse({ status: 200, description: 'On-chain transfers retrieved' })
+    async getOnChainTransfers(
+        @Request() req: any,
+        @Query('limit') limit?: number,
+        @Query('token') token?: string,
+    ) {
+        return this.walletService.getOnChainTransfers(req.user.userId, {
+            limit: limit ? Number(limit) : 50,
+            token,
+        });
+    }
 }

@@ -248,4 +248,54 @@ export class WalletService {
 
     return count > 0;
   }
+
+  /**
+   * Fetch on-chain transfer history via CDP SQL API.
+   * Returns real blockchain transfers for the user's wallet.
+   * 
+   * NOTE: Only works for Base Mainnet. Testnet transfers won't appear.
+   */
+  async getOnChainTransfers(
+    userId: string,
+    filters: { limit?: number; token?: string } = {},
+  ): Promise<any> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user || !user.wallet_address) {
+      throw new NotFoundException('Wallet not found');
+    }
+
+    const { limit = 50, token } = filters;
+
+    // Get USDC address as default token filter
+    const usdcAddress = token || undefined;
+
+    const transfers = await this.blockchainService.getWalletTransferHistory(
+      user.wallet_address,
+      limit,
+      usdcAddress,
+    );
+
+    return {
+      wallet_address: user.wallet_address,
+      transfers: transfers.map((t: any) => ({
+        block_timestamp: t.block_timestamp,
+        block_number: t.block_number,
+        tx_hash: t.transaction_hash,
+        from: t.from_address,
+        to: t.to_address,
+        token_address: t.token_address || t.address,
+        value: t.value,
+        // Determine direction
+        direction: t.from_address?.toLowerCase() === user.wallet_address?.toLowerCase()
+          ? 'sent'
+          : 'received',
+      })),
+      total: transfers.length,
+      source: 'cdp_sql_api',
+      note: 'CDP SQL API only indexes Base Mainnet data',
+    };
+  }
 }

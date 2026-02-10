@@ -65,18 +65,20 @@ export class BlockchainWorkerService {
                 // Check if any event matches the required escrow amount (approximate)
                 const targetAmount = parseFloat(escrow.amount);
                 const matchingEvent = events.find(e => {
-                    // CDP Data API returns raw 'value' for events
+                    // base.transfers returns 'value' as the raw token amount (string)
                     // USDC has 6 decimals
-                    const amount = parseFloat(e.value) / 1000000;
+                    const rawValue = typeof e.value === 'string' ? e.value : String(e.value);
+                    const amount = parseFloat(rawValue) / 1_000_000;
 
-                    // Logic Hole Fix: Check if this transaction hash has already been used for this escrow
+                    // Skip if this transaction hash has already been used for this escrow
                     if (escrow.wallet_deposit_tx_hash === e.transaction_hash) return false;
 
                     return Math.abs(amount - targetAmount) < 0.01;
                 });
 
                 if (matchingEvent) {
-                    this.logger.log(` Deposit Detected (${matchingEvent.transaction_hash}) for Escrow ${escrow.id}`);
+                    const detectedAmount = (parseFloat(String(matchingEvent.value)) / 1_000_000).toFixed(2);
+                    this.logger.log(`✅ Deposit Detected (${matchingEvent.transaction_hash}) for Escrow ${escrow.id} — ${detectedAmount} USDC`);
 
                     // Create notification for discovery
                     try {
@@ -84,7 +86,7 @@ export class BlockchainWorkerService {
                             userId: escrow.buyer_id,
                             type: 'ESCROW_FUNDED',
                             title: 'Deposit Detected',
-                            message: `We've detected your deposit of ${matchingEvent.value / 1000000} USDC. Setting up your escrow on-chain...`,
+                            message: `We've detected your deposit of ${detectedAmount} USDC. Setting up your escrow on-chain...`,
                             escrowId: escrow.id
                         });
                     } catch (nErr) {

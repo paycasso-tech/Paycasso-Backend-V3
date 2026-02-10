@@ -85,7 +85,7 @@ export class EmailService {
       // Fallback for development without SMTP
       this.logger.log(`[DEV MODE]  Sending Email to ${to}:`);
       this.logger.log(`Subject: ${subject}`);
-      this.logger.log(`OTP Content: ${otpForLog}`);
+      this.logger.log(`OTP Content: ${otpForLog.length > 2 ? otpForLog[0] + '*'.repeat(otpForLog.length - 2) + otpForLog[otpForLog.length - 1] : '***'} (redacted for security)`);
     }
   }
 }
